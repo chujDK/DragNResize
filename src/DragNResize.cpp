@@ -148,47 +148,47 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
 
         if (lParam != NULL)
         {
-            auto hDraggedWindow = WindowFromPoint(pMouseStruct->pt);
-            if (mkHook.Dragging())
+            if (mkHook.Dragging() || mkHook.Resizing())
             {
-                // we don't move
+                auto hWindow = WindowFromPoint(pMouseStruct->pt);
+                // we don't move / resize:
                 // 1. desktop (wallpaper)
                 // 2. fullscreen application
-                if (hDraggedWindow != NULL && hDraggedWindow != GetDesktopWindow() && !IsFullscreen(hDraggedWindow))
+                if (hWindow != NULL && hWindow != GetDesktopWindow() && !IsFullscreen(hWindow))
                 {
-                    // if window is maximized,
-                    auto style = GetWindowLongPtr(hDraggedWindow, GWL_STYLE);
+                    // if window is maximized, restore it first
+                    auto style = GetWindowLongPtr(hWindow, GWL_STYLE);
                     if (style != 0)
                     {
                         if (style & WS_MAXIMIZE)
                         {
-                            SetWindowLong(hDraggedWindow, GWL_STYLE, style & (~WS_MAXIMIZE));
-                            if (!SetWindowPos(hDraggedWindow, 0, 0, 0, 0, 0,
-                                              SWP_FRAMECHANGED | SWP_NOSIZE | SWP_NOZORDER))
-                            {
-                                // restore the window failed, block the cursor input
-                                return 1;
-                            }
+                            ShowWindow(hWindow, SW_RESTORE);
                         }
+                        SetForegroundWindow(hWindow);
+
                         RECT windowRect;
-                        GetWindowRect(hDraggedWindow, &windowRect);
-                        auto dMouseX = pMouseStruct->pt.x - mkHook.Cursor().x;
-                        auto dMouseY = pMouseStruct->pt.y - mkHook.Cursor().y;
-                        if (SetWindowPos(hDraggedWindow, HWND_TOP, windowRect.left + dMouseX, windowRect.top + dMouseY,
-                                         0, 0, SWP_NOSIZE))
+                        GetWindowRect(hWindow, &windowRect);
+                        if (mkHook.Dragging())
                         {
-                            // only move cursor when the window is moved
-                            if (SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y))
+
+                            auto dMouseX = pMouseStruct->pt.x - mkHook.Cursor().x;
+                            auto dMouseY = pMouseStruct->pt.y - mkHook.Cursor().y;
+                            if (SetWindowPos(hWindow, HWND_TOP, windowRect.left + dMouseX, windowRect.top + dMouseY, 0,
+                                             0, SWP_NOSIZE | SWP_DRAWFRAME))
                             {
-                                mkHook.SetCursor(pMouseStruct->pt);
+                                // only move cursor when the window is moved
+                                if (SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y))
+                                {
+                                    mkHook.SetCursor(pMouseStruct->pt);
+                                }
                             }
+                            return 1;
                         }
-                        return 1;
+                        else if (mkHook.Resizing())
+                        {
+                        }
                     }
                 }
-            }
-            else if (mkHook.Resizing())
-            {
             }
         }
         return CallNextHookEx(NULL, code, wParam, lParam);
@@ -211,7 +211,6 @@ LRESULT KeyboardHook(int code, WPARAM wParam, LPARAM lParam)
                 }
                 if (wParam == WM_KEYUP)
                 {
-                    // auto wasDragging = MKHook::get().WasDragging();
                     MKHook::get().ModDown(false);
                 }
             }
@@ -222,7 +221,6 @@ LRESULT KeyboardHook(int code, WPARAM wParam, LPARAM lParam)
 
 int main()
 {
-    std::cout << "HOOK\n";
     if ((MKHook::get().hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHook, NULL, 0)) == NULL)
     {
         return 1;
