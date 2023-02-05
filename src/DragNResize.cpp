@@ -113,7 +113,7 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
                         auto width = pMouseStruct->pt.x - windowRect.left;
                         auto height = pMouseStruct->pt.y - windowRect.top;
                         if (SetWindowPos(mkHook.ResizeWindow(), HWND_TOP, windowRect.left, windowRect.top, width,
-                                         height, SWP_NOCOPYBITS))
+                                         height, 0))
                         {
                             SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y);
                             return 1;
