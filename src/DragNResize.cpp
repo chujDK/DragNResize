@@ -1,159 +1,4 @@
-﻿#include <Windows.h>
-#include <WinUser.h>
-#include <ShellScalingApi.h>
-#include <iostream>
-
-class MKHook
-{
-  public:
-    static MKHook &get()
-    {
-        static MKHook hook;
-        return hook;
-    }
-
-    int InstallHook()
-    {
-        if ((MKHook::get().hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHook, NULL, 0)) == NULL)
-        {
-            return 1;
-        }
-        if ((MKHook::get().hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHook, NULL, 0)) == NULL)
-        {
-            return 1;
-        }
-        return 0;
-    }
-
-    int MessageLoop()
-    {
-        while (msg.message != WM_QUIT)
-        {
-            BOOL bRet;
-            while ((bRet = GetMessage(&msg, NULL, 0, 0)) != 0)
-            {
-                if (bRet == -1)
-                {
-                    // handle the error and possibly exit
-                }
-                else
-                {
-                    TranslateMessage(&msg);
-                    DispatchMessage(&msg);
-                }
-            }
-        }
-        UnhookWindowsHookEx(hMouseHook);
-        UnhookWindowsHookEx(hKeyboardHook);
-        UnhookWindowsHookEx(hBlockingHook);
-        return msg.wParam;
-    }
-    HHOOK hMouseHook = NULL;
-    HHOOK hKeyboardHook = NULL;
-    HHOOK hBlockingHook = NULL;
-
-    void ModDown(bool t)
-    {
-        modDown = t;
-        if (!t)
-        {
-            active = t;
-        }
-    }
-
-    void DragButtonDown(bool t)
-    {
-        if (modDown)
-        {
-            dragButtonDown = t;
-            if (t)
-            {
-                active = t;
-            }
-            else
-            {
-                active = Resizing();
-            }
-        }
-    }
-
-    void ResizeButtonDown(bool t)
-    {
-        if (modDown)
-        {
-            resizeButtonDown = t;
-            if (t)
-            {
-                active = t;
-            }
-            else
-            {
-                active = Dragging();
-            }
-        }
-    }
-
-    bool Dragging() const
-    {
-        return modDown && dragButtonDown;
-    }
-
-    bool Resizing() const
-    {
-        return modDown && resizeButtonDown;
-    }
-
-    void SetCursor(const POINT &p)
-    {
-        cursor = p;
-    }
-    void SetLeftTop(const POINT &p)
-    {
-        leftTop = p;
-    }
-    void SetRightBottom(const POINT &p)
-    {
-        rightBottom = p;
-    }
-
-    POINT Cursor() const
-    {
-        return cursor;
-    }
-    POINT LeftTop() const
-    {
-        return leftTop;
-    }
-    POINT RightBottom() const
-    {
-        return rightBottom;
-    }
-
-    void SetResizeWindow(HWND h)
-    {
-        resizeWindow = h;
-    }
-    HWND ResizeWindow() const
-    {
-        return resizeWindow;
-    }
-
-    bool IsActive() const
-    {
-        return active;
-    }
-
-  private:
-    MSG msg;
-    bool modDown = false;
-    bool dragButtonDown = false;
-    bool resizeButtonDown = false;
-
-    POINT cursor{}, leftTop{}, rightBottom{};
-    HWND resizeWindow = NULL;
-
-    bool active = false; // are we dragging or resizing?
-};
+﻿#include "dragNResize.h"
 
 static bool IsFullscreen(HWND windowHandle)
 {
@@ -305,11 +150,137 @@ LRESULT KeyboardHook(int code, WPARAM wParam, LPARAM lParam)
     return CallNextHookEx(NULL, code, wParam, lParam);
 }
 
-int main()
+// MKHook implement
+MKHook &MKHook::get()
 {
-    if (MKHook::get().InstallHook() != 0)
+    static MKHook hook;
+    return hook;
+}
+
+int MKHook::InstallHook()
+{
+    if ((MKHook::get().hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHook, NULL, 0)) == NULL)
     {
         return 1;
     }
-    return MKHook::get().MessageLoop();
+    if ((MKHook::get().hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardHook, NULL, 0)) == NULL)
+    {
+        return 1;
+    }
+    return 0;
+}
+
+int MKHook::MessageLoop()
+{
+    while (msg.message != WM_QUIT)
+    {
+        BOOL bRet;
+        while ((bRet = GetMessage(&msg, NULL, 0, 0)) != 0)
+        {
+            if (bRet == -1)
+            {
+                // handle the error and possibly exit
+            }
+            else
+            {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+        }
+    }
+    UnhookWindowsHookEx(hMouseHook);
+    UnhookWindowsHookEx(hKeyboardHook);
+    UnhookWindowsHookEx(hBlockingHook);
+    return msg.wParam;
+}
+
+void MKHook::ModDown(bool t)
+{
+    modDown = t;
+    if (!t)
+    {
+        active = t;
+    }
+}
+
+void MKHook::DragButtonDown(bool t)
+{
+    if (modDown)
+    {
+        dragButtonDown = t;
+        if (t)
+        {
+            active = t;
+        }
+        else
+        {
+            active = Resizing();
+        }
+    }
+}
+
+void MKHook::ResizeButtonDown(bool t)
+{
+    if (modDown)
+    {
+        resizeButtonDown = t;
+        if (t)
+        {
+            active = t;
+        }
+        else
+        {
+            active = Dragging();
+        }
+    }
+}
+
+bool MKHook::Dragging() const
+{
+    return modDown && dragButtonDown;
+}
+
+bool MKHook::Resizing() const
+{
+    return modDown && resizeButtonDown;
+}
+
+void MKHook::SetCursor(const POINT &p)
+{
+    cursor = p;
+}
+void MKHook::SetLeftTop(const POINT &p)
+{
+    leftTop = p;
+}
+void MKHook::SetRightBottom(const POINT &p)
+{
+    rightBottom = p;
+}
+
+POINT MKHook::Cursor() const
+{
+    return cursor;
+}
+POINT MKHook::LeftTop() const
+{
+    return leftTop;
+}
+POINT MKHook::RightBottom() const
+{
+    return rightBottom;
+}
+
+void MKHook::SetResizeWindow(HWND h)
+{
+    resizeWindow = h;
+}
+HWND MKHook::ResizeWindow() const
+{
+    return resizeWindow;
+}
+
+bool MKHook::IsActive() const
+{
+    return active;
 }
