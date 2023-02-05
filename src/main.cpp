@@ -28,7 +28,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     nid.cbSize = sizeof(nid);
     nid.uFlags = NIF_ICON;
     nid.hWnd = hInvisibleWindow;
-    nid.hIcon = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDI_TRAY), IMAGE_ICON, 0, 0, LR_SHARED);
+    nid.hIcon = (HICON)LoadImage(hInstance, MAKEINTRESOURCE(IDI_TRAY), IMAGE_ICON, 0, 0, LR_SHARED);
     if (!Shell_NotifyIcon(NIM_ADD, &nid))
     {
         return 1;
