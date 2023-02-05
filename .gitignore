@@ -400,3 +400,4 @@ FodyWeavers.xsd
 *.sln.iml
 
 compile_commands.json
+CMakeSettings.json

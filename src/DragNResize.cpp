@@ -205,9 +205,9 @@ void MKHook::ModDown(bool t)
 
 void MKHook::DragButtonDown(bool t)
 {
+    dragButtonDown = t;
     if (modDown)
     {
-        dragButtonDown = t;
         if (t)
         {
             active = t;
@@ -221,9 +221,9 @@ void MKHook::DragButtonDown(bool t)
 
 void MKHook::ResizeButtonDown(bool t)
 {
+    resizeButtonDown = t;
     if (modDown)
     {
-        resizeButtonDown = t;
         if (t)
         {
             active = t;
