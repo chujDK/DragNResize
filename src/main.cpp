@@ -21,14 +21,21 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     wc.hInstance = hInstance;
     wc.lpszClassName = CLASS_NAME;
 
-    HWND hInvisibleWindow =
-        CreateWindowEx(0, CLASS_NAME, L"DRAG AND RESIZE WITH MOUSE IN EVERY WHERE!", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,
-                       CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInstance, NULL);
+    RegisterClass(&wc);
+
+    HWND hInvisibleWindow = CreateWindowEx(0, CLASS_NAME, L"DNR", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+                                           CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInstance, NULL);
+    if (hInvisibleWindow == NULL)
+    {
+        return 1;
+    }
+    // ShowWindow(hInvisibleWindow, nCmdShow);
     NOTIFYICONDATA nid{};
     nid.cbSize = sizeof(nid);
-    nid.uFlags = NIF_ICON;
+    nid.uFlags = NIF_ICON | NIF_TIP;
     nid.hWnd = hInvisibleWindow;
     nid.hIcon = (HICON)LoadImage(hInstance, MAKEINTRESOURCE(IDI_TRAY), IMAGE_ICON, 0, 0, LR_SHARED);
+    memcpy(nid.szTip, L"drag&resize your windows!", sizeof(nid.szTip));
     if (!Shell_NotifyIcon(NIM_ADD, &nid))
     {
         return 1;
@@ -39,7 +46,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     }
     auto ret = MKHook::get().MessageLoop();
     Shell_NotifyIcon(NIM_DELETE, &nid);
-    return ret;
+    return 0;
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
