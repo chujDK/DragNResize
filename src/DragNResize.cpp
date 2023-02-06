@@ -39,6 +39,12 @@ static int RestoreAndForegroundWindow(HWND hWindow)
         if (style & WS_MAXIMIZE)
         {
             ShowWindow(hWindow, SW_RESTORE);
+            // after restore, the cursor might not in the window, here we set the cursor to the center
+            RECT windowRect;
+            GetWindowRect(hWindow, &windowRect);
+            auto midX = (windowRect.right + windowRect.left) / 2;
+            auto midY = (windowRect.top + windowRect.bottom) / 2;
+            SetCursorPos(midX, midY);
         }
         SetForegroundWindow(hWindow);
         return 0;
@@ -105,7 +111,6 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
             // enter dragging
             if (mkHook.Dragging() && !active)
             {
-                mkHook.SetCursor(pMouseStruct->pt);
                 mkHook.SetBlockDragButton(true);
             }
         }
@@ -157,18 +162,19 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
                     RECT windowRect;
                     GetWindowRect(hWindow, &windowRect);
 
-                    auto dMouseX = pMouseStruct->pt.x - mkHook.Cursor().x;
-                    auto dMouseY = pMouseStruct->pt.y - mkHook.Cursor().y;
-                    if (SetWindowPos(hWindow, 0, windowRect.left + dMouseX, windowRect.top + dMouseY, 0, 0,
-                                     SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER))
+                    POINT cursorPos;
+                    if (GetCursorPos(&cursorPos)) // FIXME: when will this fail? how to handle?
                     {
-                        // only move cursor when the window is moved
-                        if (SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y))
+                        auto dMouseX = pMouseStruct->pt.x - cursorPos.x;
+                        auto dMouseY = pMouseStruct->pt.y - cursorPos.y;
+                        if (SetWindowPos(hWindow, 0, windowRect.left + dMouseX, windowRect.top + dMouseY, 0, 0,
+                                         SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER))
                         {
-                            mkHook.SetCursor(pMouseStruct->pt);
+                            // only move cursor when the window is moved
+                            SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y);
                         }
+                        return 1;
                     }
-                    return 1;
                 }
                 else if (mkHook.Resizing())
                 {
@@ -318,23 +324,16 @@ bool MKHook::Resizing() const
     return modDown && resizeButtonDown;
 }
 
-void MKHook::SetCursor(const POINT &p)
-{
-    cursor = p;
-}
 void MKHook::SetLeftTop(const POINT &p)
 {
     leftTop = p;
 }
+
 void MKHook::SetRightBottom(const POINT &p)
 {
     rightBottom = p;
 }
 
-POINT MKHook::Cursor() const
-{
-    return cursor;
-}
 POINT MKHook::LeftTop() const
 {
     return leftTop;

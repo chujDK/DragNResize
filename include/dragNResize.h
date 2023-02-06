@@ -15,10 +15,8 @@ class MKHook
     void ResizeButtonDown(bool t);
     bool Dragging() const;
     bool Resizing() const;
-    void SetCursor(const POINT &p);
     void SetLeftTop(const POINT &p);
     void SetRightBottom(const POINT &p);
-    POINT Cursor() const;
     POINT LeftTop() const;
     POINT RightBottom() const;
     void SetResizeWindow(HWND h);
