@@ -122,8 +122,8 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
-        return CallNextHookEx(NULL, code, wParam, lParam);
     }
+    return CallNextHookEx(NULL, code, wParam, lParam);
 }
 
 LRESULT KeyboardHook(int code, WPARAM wParam, LPARAM lParam)
@@ -134,9 +134,10 @@ LRESULT KeyboardHook(int code, WPARAM wParam, LPARAM lParam)
     {
         if (pKeyStruct != NULL)
         {
-            if (pKeyStruct->vkCode == VK_LCONTROL)
+            if (pKeyStruct->vkCode == VK_LMENU) // LALT
             {
-                if (wParam == WM_KEYDOWN)
+                // when alt is pressed, the message will be SYSKEYDOWN
+                if (wParam == WM_SYSKEYDOWN)
                 {
                     MKHook::get().ModDown(true);
                 }
