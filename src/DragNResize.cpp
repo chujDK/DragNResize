@@ -102,9 +102,9 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
             // 2. fullscreen application
             if (hWindow != NULL && hWindow != GetDesktopWindow() && !IsFullscreen(hWindow))
             {
+                RestoreAndForegroundWindow(hWindow);
                 if (mkHook.Dragging())
                 {
-                    RestoreAndForegroundWindow(hWindow);
                     RECT windowRect;
                     GetWindowRect(hWindow, &windowRect);
 
@@ -125,7 +125,6 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
                 {
                     if (moveCursorToRightBottom)
                     {
-                        RestoreAndForegroundWindow(hWindow);
                         // ignore the movement in this case
                         RECT windowRect;
                         GetWindowRect(hWindow, &windowRect);
@@ -138,8 +137,8 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
                     GetWindowRect(mkHook.ResizeWindow(), &windowRect);
                     auto width = pMouseStruct->pt.x - windowRect.left;
                     auto height = pMouseStruct->pt.y - windowRect.top;
-                    if (SetWindowPos(mkHook.ResizeWindow(), HWND_TOP, windowRect.left, windowRect.top, width, height,
-                                     0))
+                    if (SetWindowPos(mkHook.ResizeWindow(), HWND_TOP, 0, 0, width, height,
+                                     SWP_NOMOVE | SWP_NOOWNERZORDER))
                     {
                         SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y);
                         return 1;
