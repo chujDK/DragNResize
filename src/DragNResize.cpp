@@ -45,6 +45,31 @@ static int RestoreAndForegroundWindow(HWND hWindow)
     return 1;
 }
 
+namespace
+{
+static HWND FOUND_TOP_WINDOW{};
+static BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam)
+{
+    const auto victim = (HWND *)(lParam);
+
+    if (IsChild(hwnd, *victim))
+    {
+        FOUND_TOP_WINDOW = hwnd;
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static HWND EnumTopWindowFromPoint(POINT pt)
+{
+    auto victim = WindowFromPoint(pt);
+    FOUND_TOP_WINDOW = NULL;
+    EnumWindows(EnumWindowsProc, (LPARAM)&victim);
+    return FOUND_TOP_WINDOW;
+    // return WindowFromPoint(pt);
+}
+} // namespace
+
 LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
 {
     MKHook &mkHook = MKHook::get();
@@ -96,22 +121,27 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
 
         if (mkHook.Dragging() || mkHook.Resizing())
         {
-            auto hWindow = WindowFromPoint(pMouseStruct->pt);
+            auto hWindow = EnumTopWindowFromPoint(pMouseStruct->pt);
+            if (hWindow == NULL)
+            {
+                // to application like borderless alacrrity, can't find with EnumWindows
+                hWindow = WindowFromPoint(pMouseStruct->pt);
+            }
             // we don't move / resize:
             // 1. desktop (wallpaper)
             // 2. fullscreen application
             if (hWindow != NULL && hWindow != GetDesktopWindow() && !IsFullscreen(hWindow))
             {
-                RestoreAndForegroundWindow(hWindow);
                 if (mkHook.Dragging())
                 {
+                    RestoreAndForegroundWindow(hWindow);
                     RECT windowRect;
                     GetWindowRect(hWindow, &windowRect);
 
                     auto dMouseX = pMouseStruct->pt.x - mkHook.Cursor().x;
                     auto dMouseY = pMouseStruct->pt.y - mkHook.Cursor().y;
-                    if (SetWindowPos(hWindow, HWND_TOP, windowRect.left + dMouseX, windowRect.top + dMouseY, 0, 0,
-                                     SWP_NOSIZE))
+                    if (SetWindowPos(hWindow, 0, windowRect.left + dMouseX, windowRect.top + dMouseY, 0, 0,
+                                     SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER))
                     {
                         // only move cursor when the window is moved
                         if (SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y))
@@ -125,6 +155,7 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
                 {
                     if (moveCursorToRightBottom)
                     {
+                        RestoreAndForegroundWindow(hWindow);
                         // ignore the movement in this case
                         RECT windowRect;
                         GetWindowRect(hWindow, &windowRect);
@@ -133,12 +164,14 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
                         mkHook.SetResizeWindow(hWindow);
                         return 1;
                     }
+                    auto hResizeWindow = mkHook.ResizeWindow();
+                    RestoreAndForegroundWindow(hResizeWindow);
                     RECT windowRect;
-                    GetWindowRect(mkHook.ResizeWindow(), &windowRect);
+                    GetWindowRect(hResizeWindow, &windowRect);
                     auto width = pMouseStruct->pt.x - windowRect.left;
                     auto height = pMouseStruct->pt.y - windowRect.top;
-                    if (SetWindowPos(mkHook.ResizeWindow(), HWND_TOP, 0, 0, width, height,
-                                     SWP_NOMOVE | SWP_NOOWNERZORDER))
+                    if (SetWindowPos(hResizeWindow, 0, 0, 0, width, height,
+                                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOOWNERZORDER))
                     {
                         SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y);
                         return 1;
