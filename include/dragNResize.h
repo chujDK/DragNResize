@@ -24,6 +24,10 @@ class MKHook
     void SetResizeWindow(HWND h);
     HWND ResizeWindow() const;
     bool IsActive() const;
+    bool BlockDragButton() const;
+    bool BlockResizeButton() const;
+    void SetBlockDragButton(bool t);
+    void SetBlockResizeButton(bool t);
 
   private:
     HHOOK hMouseHook = NULL;
@@ -34,6 +38,10 @@ class MKHook
     bool modDown = false;
     bool dragButtonDown = false;
     bool resizeButtonDown = false;
+
+    // when the drag/resize is down, we shouldn't send the key up or down to the system
+    bool blockDragButton = false;
+    bool blockResizeButton = false;
 
     POINT cursor{}, leftTop{}, rightBottom{};
     HWND resizeWindow = NULL;

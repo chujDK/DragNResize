@@ -402,3 +402,4 @@ FodyWeavers.xsd
 
 compile_commands.json
 CMakeSettings.json
+build/

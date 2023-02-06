@@ -1,5 +1,20 @@
 ﻿#include "dragNResize.h"
 
+#include <tchar.h>
+
+#ifdef _DEBUG
+#include <sstream>
+#define DEBUG_MESSAGE(x)                                                                                               \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        std::ostringstream s;                                                                                          \
+        s << x;                                                                                                        \
+        MessageBoxA(NULL, s.str().c_str(), NULL, MB_OK);                                                               \
+    } while (0)
+#else
+#define DEBUG_MESSAGE(str)
+#endif
+
 static bool IsFullscreen(HWND windowHandle)
 {
     MONITORINFO monitorInfo = {0};
@@ -41,83 +56,93 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
         if (wParam == WM_LBUTTONDOWN)
         {
             mkHook.DragButtonDown(true);
-            // we will occur a drag
+            // enter dragging
             if (mkHook.Dragging() && !active)
             {
                 mkHook.SetCursor(pMouseStruct->pt);
+                mkHook.SetBlockDragButton(true);
             }
         }
         else if (wParam == WM_LBUTTONUP)
         {
             mkHook.DragButtonDown(false);
+            if (mkHook.BlockDragButton())
+            {
+                mkHook.SetBlockDragButton(false);
+                return 1;
+            }
         }
         else if (wParam == WM_RBUTTONDOWN)
         {
             mkHook.ResizeButtonDown(true);
             if (mkHook.Resizing() && !active)
             {
-                // if we enter the resizing state, we need move cursor to the right bottom of the window later. also
+                // enter resizing
+                // when we enter the resizing state, we need move cursor to the right bottom of the window later. also
                 // as the cursor will go outside of the window. we need to remember the window's handle
                 moveCursorToRightBottom = true;
+                mkHook.SetBlockResizeButton(true);
             }
         }
         else if (wParam == WM_RBUTTONUP)
         {
             mkHook.ResizeButtonDown(false);
+            if (mkHook.BlockResizeButton())
+            {
+                mkHook.SetBlockResizeButton(false);
+                return 1;
+            }
         }
 
-        if (lParam != NULL)
+        if (mkHook.Dragging() || mkHook.Resizing())
         {
-            if (mkHook.Dragging() || mkHook.Resizing())
+            auto hWindow = WindowFromPoint(pMouseStruct->pt);
+            // we don't move / resize:
+            // 1. desktop (wallpaper)
+            // 2. fullscreen application
+            if (hWindow != NULL && hWindow != GetDesktopWindow() && !IsFullscreen(hWindow))
             {
-                auto hWindow = WindowFromPoint(pMouseStruct->pt);
-                // we don't move / resize:
-                // 1. desktop (wallpaper)
-                // 2. fullscreen application
-                if (hWindow != NULL && hWindow != GetDesktopWindow() && !IsFullscreen(hWindow))
+                if (mkHook.Dragging())
                 {
-                    if (mkHook.Dragging())
+                    RestoreAndForegroundWindow(hWindow);
+                    RECT windowRect;
+                    GetWindowRect(hWindow, &windowRect);
+
+                    auto dMouseX = pMouseStruct->pt.x - mkHook.Cursor().x;
+                    auto dMouseY = pMouseStruct->pt.y - mkHook.Cursor().y;
+                    if (SetWindowPos(hWindow, HWND_TOP, windowRect.left + dMouseX, windowRect.top + dMouseY, 0, 0,
+                                     SWP_NOSIZE))
+                    {
+                        // only move cursor when the window is moved
+                        if (SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y))
+                        {
+                            mkHook.SetCursor(pMouseStruct->pt);
+                        }
+                    }
+                    return 1;
+                }
+                else if (mkHook.Resizing())
+                {
+                    if (moveCursorToRightBottom)
                     {
                         RestoreAndForegroundWindow(hWindow);
+                        // ignore the movement in this case
                         RECT windowRect;
                         GetWindowRect(hWindow, &windowRect);
-
-                        auto dMouseX = pMouseStruct->pt.x - mkHook.Cursor().x;
-                        auto dMouseY = pMouseStruct->pt.y - mkHook.Cursor().y;
-                        if (SetWindowPos(hWindow, HWND_TOP, windowRect.left + dMouseX, windowRect.top + dMouseY, 0, 0,
-                                         SWP_NOSIZE))
-                        {
-                            // only move cursor when the window is moved
-                            if (SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y))
-                            {
-                                mkHook.SetCursor(pMouseStruct->pt);
-                            }
-                        }
+                        SetCursorPos(windowRect.right, windowRect.bottom);
+                        // remember the window
+                        mkHook.SetResizeWindow(hWindow);
                         return 1;
                     }
-                    else if (mkHook.Resizing())
+                    RECT windowRect;
+                    GetWindowRect(mkHook.ResizeWindow(), &windowRect);
+                    auto width = pMouseStruct->pt.x - windowRect.left;
+                    auto height = pMouseStruct->pt.y - windowRect.top;
+                    if (SetWindowPos(mkHook.ResizeWindow(), HWND_TOP, windowRect.left, windowRect.top, width, height,
+                                     0))
                     {
-                        if (moveCursorToRightBottom)
-                        {
-                            RestoreAndForegroundWindow(hWindow);
-                            // ignore the movement in this case
-                            RECT windowRect;
-                            GetWindowRect(hWindow, &windowRect);
-                            SetCursorPos(windowRect.right, windowRect.bottom);
-                            // remember the window
-                            mkHook.SetResizeWindow(hWindow);
-                            return 1;
-                        }
-                        RECT windowRect;
-                        GetWindowRect(mkHook.ResizeWindow(), &windowRect);
-                        auto width = pMouseStruct->pt.x - windowRect.left;
-                        auto height = pMouseStruct->pt.y - windowRect.top;
-                        if (SetWindowPos(mkHook.ResizeWindow(), HWND_TOP, windowRect.left, windowRect.top, width,
-                                         height, 0))
-                        {
-                            SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y);
-                            return 1;
-                        }
+                        SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y);
+                        return 1;
                     }
                 }
             }
@@ -284,4 +309,24 @@ HWND MKHook::ResizeWindow() const
 bool MKHook::IsActive() const
 {
     return active;
+}
+
+void MKHook::SetBlockDragButton(bool t)
+{
+    blockDragButton = t;
+}
+
+bool MKHook::BlockDragButton() const
+{
+    return blockDragButton;
+}
+
+void MKHook::SetBlockResizeButton(bool t)
+{
+    blockResizeButton = t;
+}
+
+bool MKHook::BlockResizeButton() const
+{
+    return blockResizeButton;
 }

@@ -6,6 +6,7 @@
 #include "resource.h"
 
 #include <windows.h>
+#include <tchar.h>
 
 #define NOTIFICATION_TRAY_ICON_R_CLICK_MSG (WM_USER + 0x100)
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -14,7 +15,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 {
 
     // create a invisible window
-    const wchar_t CLASS_NAME[] = L"DragNResize Class";
+    const wchar_t CLASS_NAME[] = _T("DragNResize Class");
 
     WNDCLASS wc = {};
 
@@ -24,13 +25,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     RegisterClass(&wc);
 
-    HWND hInvisibleWindow = CreateWindowEx(0, CLASS_NAME, L"DNR", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+    HWND hInvisibleWindow = CreateWindowEx(0, CLASS_NAME, _T("DNR"), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
                                            CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInstance, NULL);
     if (hInvisibleWindow == NULL)
     {
         return 1;
     }
-    // ShowWindow(hInvisibleWindow, nCmdShow);
     NOTIFYICONDATA nid{};
     nid.cbSize = sizeof(nid);
     nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
@@ -38,7 +38,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     nid.uCallbackMessage = NOTIFICATION_TRAY_ICON_R_CLICK_MSG;
     nid.hIcon = (HICON)LoadImage(hInstance, MAKEINTRESOURCE(IDI_TRAY), IMAGE_ICON, 0, 0, LR_SHARED);
     nid.uVersion = NOTIFYICON_VERSION_4;
-    memcpy(nid.szTip, L"drag&resize your windows!", sizeof(nid.szTip));
+    memcpy(nid.szTip, _T("drag&resize your windows!"), sizeof(nid.szTip));
     if (!Shell_NotifyIcon(NIM_ADD, &nid) || !Shell_NotifyIcon(NIM_SETVERSION, &nid))
     {
         return 1;
@@ -83,7 +83,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             GetCursorPos(&pt);
 
             HMENU hmenu = CreatePopupMenu();
-            InsertMenu(hmenu, 0, MF_BYPOSITION | MF_STRING, IDM_EXIT, L"Exit");
+            InsertMenu(hmenu, 0, MF_BYPOSITION | MF_STRING, IDM_EXIT, _T("Exit"));
 
             SetForegroundWindow(hwnd);
 
