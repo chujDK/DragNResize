@@ -1,6 +1,7 @@
 ﻿#include "dragNResize.h"
 
 #include <tchar.h>
+#include <random>
 
 #ifdef _DEBUG
 #include <sstream>
@@ -65,10 +66,30 @@ static HWND EnumTopWindowFromPoint(POINT pt)
     auto victim = WindowFromPoint(pt);
     FOUND_TOP_WINDOW = NULL;
     EnumWindows(EnumWindowsProc, (LPARAM)&victim);
+    if (FOUND_TOP_WINDOW == NULL)
+    {
+        // to application like borderless alacrrity, can't find with EnumWindows
+        FOUND_TOP_WINDOW = WindowFromPoint(pt);
+    }
     return FOUND_TOP_WINDOW;
     // return WindowFromPoint(pt);
 }
 } // namespace
+
+// return true on success
+static int ResizeAndForegroundWindow(HWND hResizeWindow, const POINT &cursorPt)
+{
+    RestoreAndForegroundWindow(hResizeWindow);
+    RECT windowRect;
+    GetWindowRect(hResizeWindow, &windowRect);
+    auto width = cursorPt.x - windowRect.left;
+    auto height = cursorPt.y - windowRect.top;
+    return SetWindowPos(hResizeWindow, 0, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+}
+
+static std::random_device dev;
+static std::mt19937 rng(dev());
+static std::uniform_int_distribution<std::mt19937::result_type> dist8(1, 8); // distribution in range [1, 8]
 
 LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
 {
@@ -114,6 +135,8 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
             mkHook.ResizeButtonDown(false);
             if (mkHook.BlockResizeButton())
             {
+                // the resizing has a chance to happen, so here we need ensure it to make the final position
+                ResizeAndForegroundWindow(mkHook.ResizeWindow(), pMouseStruct->pt);
                 mkHook.SetBlockResizeButton(false);
                 return 1;
             }
@@ -122,11 +145,7 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
         if (mkHook.Dragging() || mkHook.Resizing())
         {
             auto hWindow = EnumTopWindowFromPoint(pMouseStruct->pt);
-            if (hWindow == NULL)
-            {
-                // to application like borderless alacrrity, can't find with EnumWindows
-                hWindow = WindowFromPoint(pMouseStruct->pt);
-            }
+
             // we don't move / resize:
             // 1. desktop (wallpaper)
             // 2. fullscreen application
@@ -165,17 +184,13 @@ LRESULT MouseHook(int code, WPARAM wParam, LPARAM lParam)
                         return 1;
                     }
                     auto hResizeWindow = mkHook.ResizeWindow();
-                    RestoreAndForegroundWindow(hResizeWindow);
-                    RECT windowRect;
-                    GetWindowRect(hResizeWindow, &windowRect);
-                    auto width = pMouseStruct->pt.x - windowRect.left;
-                    auto height = pMouseStruct->pt.y - windowRect.top;
-                    if (SetWindowPos(hResizeWindow, 0, 0, 0, width, height,
-                                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOOWNERZORDER))
+                    // to increase speed, don't update all the time, instead, there is a 1/6 change to update
+                    if (dist8(rng) == 1)
                     {
-                        SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y);
-                        return 1;
+                        ResizeAndForegroundWindow(hResizeWindow, pMouseStruct->pt);
                     }
+                    SetCursorPos(pMouseStruct->pt.x, pMouseStruct->pt.y);
+                    return 1;
                 }
             }
         }
